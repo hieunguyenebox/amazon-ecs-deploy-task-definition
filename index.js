@@ -88,7 +88,7 @@ function removeIgnoredAttributes(taskDef) {
 }
 
 // Deploy to a service that uses the 'CODE_DEPLOY' deployment controller
-async function createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn, waitForService) {
+async function createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn, waitForService, waitMinutes) {
   core.debug('Updating AppSpec file with new task definition ARN');
 
   let codeDeployAppSpecFile = core.getInput('codedeploy-appspec', { required : false });
@@ -152,6 +152,11 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
     if (totalWaitMin < CODE_DEPLOY_MIN_WAIT_MINUTES) {
       totalWaitMin = CODE_DEPLOY_MIN_WAIT_MINUTES;
     }
+
+    if (waitMinutes) {
+      totalWaitMin = waitMinutes
+    }
+
     const maxAttempts = (totalWaitMin * 60) / CODE_DEPLOY_WAIT_DEFAULT_DELAY_SEC;
 
     core.debug(`Waiting for the deployment to complete. Will wait for ${totalWaitMin} minutes`);
@@ -181,6 +186,7 @@ async function run() {
     const service = core.getInput('service', { required: false });
     const cluster = core.getInput('cluster', { required: false });
     const waitForService = core.getInput('wait-for-service-stability', { required: false });
+    const waitMinutes = core.getInput('wait-for-minutes', { required: false });
 
     // Register the task definition
     core.debug('Registering the task definition');
@@ -218,7 +224,7 @@ async function run() {
         await updateEcsService(ecs, clusterName, service, taskDefArn, waitForService);
       } else if (serviceResponse.deploymentController.type == 'CODE_DEPLOY') {
         // Service uses CodeDeploy, so we should start a CodeDeploy deployment
-        await createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn, waitForService);
+        await createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn, waitForService, waitMinutes);
       } else {
         throw new Error(`Unsupported deployment controller: ${serviceResponse.deploymentController.type}`);
       }
